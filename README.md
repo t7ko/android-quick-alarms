@@ -2,6 +2,15 @@
 
 One-tap one-time alarms for an Android phone (Android 8 or newer).
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/main.png" width="200" alt="Main screen: wake-up times and today's meeting start times, four alarms set"><br>Main screen</td>
+    <td align="center"><img src="docs/screenshots/time-dialog.png" width="200" alt="Meeting start dialog with hour and minute wheels and the 3 or 5 minute choice"><br>Other start time</td>
+    <td align="center"><img src="docs/screenshots/alarm-list.png" width="200" alt="List of all alarms with their times and what they are for"><br>All alarms</td>
+    <td align="center"><img src="docs/screenshots/ringing.png" width="200" alt="Alarm ringing over the lock screen three minutes before a meeting"><br>Ringing</td>
+  </tr>
+</table>
+
 - **Wake up**: tap a saved time (6:30, 7:00, …) for an alarm at its next occurrence,
   usually tomorrow morning. Tap it again to cancel. **+** adds a time, either saved as a
   slot or set once; a long press on a time removes it from the slots.

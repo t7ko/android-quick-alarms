@@ -76,6 +76,15 @@ Versions are in `gradle/libs.versions.toml`. The scripts are for Windows PowerSh
   needs `adb uninstall t7helpers.quickalarms` when switching between debug and release
   builds. `scripts/emulator-ui.py` drives the app over adb for manual tests.
 
+## Screenshots
+
+`docs/screenshots/*.png`, shown at the top of the README, come from a 1080x2400 emulator
+in light mode with 24-hour time, scaled to half size. The status bar is in demo mode:
+`adb shell settings put global sysui_demo_allowed 1`, then broadcasts of
+`com.android.systemui.demo` with `-e command enter`, `clock -e hhmm 0840`,
+`battery -e level 100 -e plugged false`, `notifications -e visible false`, and `exit`
+afterwards. Retake them when a screen changes visibly.
+
 ## Tested
 
 On 2026-10-17, version 0.1.0 on an Android 14 emulator (Pixel 6 profile, google_apis image):
