@@ -21,9 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -39,9 +36,10 @@ import androidx.core.content.IntentCompat
 import t7helpers.quickalarms.Permissions
 import t7helpers.quickalarms.SettingsRepository
 
+/** [onGridStep] runs when the user picks a new meeting grid step. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onGridStep: () -> Unit) {
     val context = LocalContext.current
     val repo = remember { SettingsRepository.get(context) }
     val s by repo.settings.collectAsState()
@@ -77,18 +75,14 @@ fun SettingsScreen(onBack: () -> Unit) {
             Stepper("Last start", s.gridToHour, 0..23, { "$it:00" }) { v ->
                 repo.update { it.copy(gridToHour = v, gridFromHour = minOf(it.gridFromHour, v)) }
             }
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Every", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                val steps = listOf(15, 30, 60)
-                SingleChoiceSegmentedButtonRow {
-                    steps.forEachIndexed { index, step ->
-                        SegmentedButton(
-                            selected = s.gridStepMinutes == step,
-                            onClick = { repo.update { it.copy(gridStepMinutes = step) } },
-                            shape = SegmentedButtonDefaults.itemShape(index, steps.size),
-                        ) { Text("$step min") }
-                    }
-                }
+            Text(
+                "Interval when the app opens",
+                Modifier.padding(top = 8.dp, bottom = 8.dp),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            IntervalChoice(s.gridStepMinutes, Modifier.padding(bottom = 4.dp)) { step ->
+                repo.update { it.copy(gridStepMinutes = step) }
+                onGridStep()
             }
 
             SectionTitle("Alarm before a meeting, minutes")
@@ -133,9 +127,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
             }
 
-            SectionTitle("Wake-up slots")
+            SectionTitle("Wake-up times and timers")
             Text(
-                "Add a time with + on the main screen; long-press a time there to remove it.",
+                "Add one with + on the main screen; long-press it there to remove it.",
                 Modifier.padding(bottom = 24.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

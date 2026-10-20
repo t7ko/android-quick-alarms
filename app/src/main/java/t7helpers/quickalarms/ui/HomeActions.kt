@@ -11,6 +11,7 @@ import t7helpers.quickalarms.AlarmKind
 import t7helpers.quickalarms.AlarmRepository
 import t7helpers.quickalarms.AlarmTimes
 import t7helpers.quickalarms.Fmt
+import t7helpers.quickalarms.Notifications
 import t7helpers.quickalarms.SettingsRepository
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -34,12 +35,32 @@ class HomeActions(
         say("Wake-up alarm $day at ${t(at)}, ${AlarmTimes.untilText(now, at)}") { alarms.remove(alarm.id) }
     }
 
-    /** An alarm [lead] minutes before a meeting that starts at [start]. */
-    fun setMeeting(start: LocalDateTime, lead: Int) {
+    /**
+     * An alarm [lead] minutes before a meeting that starts at [start]. With [keepStart], the
+     * start stays in today's grid after the alarm goes, whatever the grid step.
+     */
+    fun setMeeting(start: LocalDateTime, lead: Int, keepStart: Boolean = false) {
         val at = start.minusMinutes(lead.toLong())
         if (!at.isAfter(LocalDateTime.now())) return say("Too late for an alarm $lead min before ${t(start)}")
         val alarm = add(AlarmKind.MEETING, at, start) ?: return
-        say("Alarm at ${t(at)}, $lead min before the ${t(start)} meeting") { alarms.remove(alarm.id) }
+        val newStart = keepStart && start !in settings.extraMeetingStarts
+        if (newStart) {
+            // Starts of other days are of no use any more.
+            settingsRepo.update { s ->
+                s.copy(extraMeetingStarts = s.extraMeetingStarts.filter { it.toLocalDate() == start.toLocalDate() } + start)
+            }
+        }
+        say("Alarm at ${t(at)}, $lead min before the ${t(start)} meeting") {
+            alarms.remove(alarm.id)
+            if (newStart) settingsRepo.update { it.copy(extraMeetingStarts = it.extraMeetingStarts - start) }
+        }
+    }
+
+    /** Starts a timer of [minutes]; timers already running go on. */
+    fun startTimer(minutes: Int) {
+        val at = LocalDateTime.now().plusMinutes(minutes.toLong())
+        val alarm = add(AlarmKind.TIMER, at, timerMinutes = minutes) ?: return
+        say("${AlarmTimes.durationText(minutes)} timer, rings at ${t(at)}") { deleteAlarm(context, alarm) }
     }
 
     /** Moves a meeting alarm between the tap and the long-press lead time. */
@@ -63,6 +84,12 @@ class HomeActions(
     fun removeWakeSlot(time: LocalTime) =
         settingsRepo.update { it.copy(wakeSlots = it.wakeSlots - time) }
 
+    fun saveTimerSlot(minutes: Int) =
+        settingsRepo.update { it.copy(timerSlots = (it.timerSlots + minutes).distinct().sorted()) }
+
+    fun removeTimerSlot(minutes: Int) =
+        settingsRepo.update { it.copy(timerSlots = it.timerSlots - minutes) }
+
     fun say(message: String, undo: (() -> Unit)? = null) {
         snackbar.currentSnackbarData?.dismiss()
         scope.launch {
@@ -77,8 +104,13 @@ class HomeActions(
 
     private fun t(time: LocalDateTime) = Fmt.time(context, time)
 
-    private fun add(kind: AlarmKind, time: LocalDateTime, meetingStart: LocalDateTime? = null): Alarm? = try {
-        alarms.add(kind, time, meetingStart)
+    private fun add(
+        kind: AlarmKind,
+        time: LocalDateTime,
+        meetingStart: LocalDateTime? = null,
+        timerMinutes: Int? = null,
+    ): Alarm? = try {
+        alarms.add(kind, time, meetingStart, timerMinutes).also(::showTimer)
     } catch (e: SecurityException) {
         say(NOT_ALLOWED)
         null
@@ -86,10 +118,16 @@ class HomeActions(
 
     private fun put(alarm: Alarm): Boolean = try {
         alarms.put(alarm)
+        showTimer(alarm)
         true
     } catch (e: SecurityException) {
         say(NOT_ALLOWED)
         false
+    }
+
+    /** The countdown notification, for a timer. */
+    private fun showTimer(alarm: Alarm) {
+        if (alarm.kind == AlarmKind.TIMER) Notifications.showTimer(context, alarm)
     }
 
     private companion object {

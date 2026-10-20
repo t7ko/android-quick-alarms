@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import t7helpers.quickalarms.Alarm
@@ -34,15 +35,16 @@ import t7helpers.quickalarms.AlarmService
 import t7helpers.quickalarms.Notifications
 import java.time.LocalDateTime
 
-/** The current time, updated every minute and whenever [key] changes. */
+/** The current time, updated every minute (every second with [seconds]) and whenever [key] changes. */
 @Composable
-fun rememberNow(key: Any? = Unit): LocalDateTime {
+fun rememberNow(key: Any? = Unit, seconds: Boolean = false): LocalDateTime {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
-    LaunchedEffect(key) {
+    LaunchedEffect(key, seconds) {
         while (true) {
             val current = LocalDateTime.now()
             now = current
-            delay(60_000L - current.second * 1000L - current.nano / 1_000_000L + 50)
+            val millis = current.nano / 1_000_000L
+            delay(if (seconds) 1000L - millis + 10 else 60_000L - current.second * 1000L - millis + 50)
         }
     }
     return now
@@ -121,6 +123,7 @@ fun SlotCell(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 title,
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = content,

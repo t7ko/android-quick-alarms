@@ -34,14 +34,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import t7helpers.quickalarms.AlarmKind
 import t7helpers.quickalarms.AlarmRepository
 import t7helpers.quickalarms.AlarmService
 import t7helpers.quickalarms.SettingsRepository
 
-/** The main screen: one tap sets a wake-up or meeting alarm. */
+/**
+ * The main screen: one tap sets a wake-up or meeting alarm, or starts a timer. [meetingStep]
+ * is the meeting grid step picked here, null for the one from Settings.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(resumeTick: Int, onOpenAlarms: () -> Unit, onOpenSettings: () -> Unit) {
+fun HomeScreen(
+    resumeTick: Int,
+    meetingStep: Int?,
+    onMeetingStep: (Int) -> Unit,
+    onOpenAlarms: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     val context = LocalContext.current
     val alarms by remember { AlarmRepository.get(context) }.alarms.collectAsState()
     val settings by remember { SettingsRepository.get(context) }.settings.collectAsState()
@@ -91,16 +101,26 @@ fun HomeScreen(resumeTick: Int, onOpenAlarms: () -> Unit, onOpenSettings: () -> 
             )
 
             SectionTitle("Meetings today")
+            val step = meetingStep ?: settings.gridStepMinutes
+            IntervalChoice(step, onSelect = onMeetingStep)
             Text(
                 "Tap a start time for an alarm ${settings.tapLead} min before, " +
                     "long-press for ${settings.longPressLead} min. Tap a set alarm to remove it.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            MeetingGrid(alarms, settings, now, actions)
+            MeetingGrid(alarms, settings, step, now, actions)
             OutlinedButton(onClick = { dialog = HomeDialog.MeetingTime }, modifier = Modifier.fillMaxWidth()) {
                 Text("Other start time…")
             }
+
+            SectionTitle("Timers")
+            TimerGrid(
+                settings, actions,
+                onAdd = { dialog = HomeDialog.TimerLength },
+                onLongPress = { dialog = HomeDialog.TimerSlot(it) },
+            )
+            RunningTimers(alarms.filter { it.kind == AlarmKind.TIMER }, actions)
             Spacer(Modifier.height(16.dp))
         }
     }

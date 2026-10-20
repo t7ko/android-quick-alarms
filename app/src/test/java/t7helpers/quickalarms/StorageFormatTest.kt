@@ -12,6 +12,7 @@ class StorageFormatTest {
         val alarms = listOf(
             Alarm(1, AlarmKind.WAKE, LocalDateTime.of(2026, 10, 18, 7, 0)),
             Alarm(2, AlarmKind.MEETING, start.minusMinutes(5), start.plusMinutes(1), start),
+            Alarm(3, AlarmKind.TIMER, start.plusSeconds(907).plusNanos(123_000_000), timerMinutes = 15),
         )
         assertEquals(alarms, decodeAlarms(encodeAlarms(alarms)))
     }
@@ -31,7 +32,9 @@ class StorageFormatTest {
             wakeSlots = listOf(LocalTime.of(5, 45), LocalTime.of(9, 0)),
             gridFromHour = 8,
             gridStepMinutes = 15,
+            extraMeetingStarts = listOf(LocalDateTime.of(2026, 10, 20, 10, 15)),
             longPressLead = 7,
+            timerSlots = listOf(3, 45, 90),
             vibrate = false,
             ringtone = "content://media/internal/audio/media/42",
             xiaomiSetupDone = true,
@@ -44,5 +47,6 @@ class StorageFormatTest {
     fun missingSettingsFallBackToDefaults() {
         assertEquals(Settings(), decodeSettings(null))
         assertEquals(Settings(tapLead = 4), decodeSettings("{\"tapLead\":4}"))
+        assertEquals(Settings(), decodeSettings("{\"timerSlots\":[5,\"ten\"]}"))
     }
 }

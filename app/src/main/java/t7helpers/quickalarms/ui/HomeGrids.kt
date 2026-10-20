@@ -53,16 +53,18 @@ fun WakeGrid(
 }
 
 /**
- * Today's meeting starts from the grid settings, plus the starts of today's meeting alarms.
- * Starts that have passed drop out unless an alarm is still set for them.
+ * Today's meeting starts every [step] minutes over the grid hours, plus the starts added by
+ * hand and those of today's meeting alarms, whatever the step. Starts that have passed drop
+ * out unless an alarm is still set for them.
  */
 @Composable
-fun MeetingGrid(alarms: List<Alarm>, settings: Settings, now: LocalDateTime, actions: HomeActions) {
+fun MeetingGrid(alarms: List<Alarm>, settings: Settings, step: Int, now: LocalDateTime, actions: HomeActions) {
     val context = LocalContext.current
     val today = now.toLocalDate()
     val meetingAlarms = alarms.filter { it.kind == AlarmKind.MEETING && it.meetingStart?.toLocalDate() == today }
     val starts = (
-        AlarmTimes.gridSlots(settings.gridFromHour, settings.gridToHour, settings.gridStepMinutes) +
+        AlarmTimes.gridSlots(settings.gridFromHour, settings.gridToHour, step) +
+            settings.extraMeetingStarts.filter { it.toLocalDate() == today }.map { it.toLocalTime() } +
             meetingAlarms.mapNotNull { it.meetingStart?.toLocalTime() }
         ).distinct().sorted()
     val cells = starts.mapNotNull { time ->

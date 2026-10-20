@@ -1,6 +1,7 @@
 package t7helpers.quickalarms.ui
 
 import android.text.format.DateFormat
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -12,6 +13,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
@@ -19,6 +23,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import t7helpers.quickalarms.AlarmTimes
+import t7helpers.quickalarms.Settings
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -57,12 +63,12 @@ fun Stepper(
     }
 }
 
-/** Minutes on the wheel go in steps of this size; typing allows any minute. */
+/** Minutes on the wheel go in steps of this size; the keyboard allows any minute. */
 private const val WHEEL_MINUTE_STEP = 5
 
 /**
- * A dialog to pick a time: scroll wheels at first, or typing after "Type". [buttons] read
- * the time with the function they get.
+ * A dialog to pick a time: scroll wheels at first, or typing after "Keyboard". [buttons]
+ * read the time with the function they get.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,7 +95,7 @@ fun TimeDialog(
                 TextButton(onClick = {
                     if (typing) wheelTime = AlarmTimes.roundToStep(typed(), WHEEL_MINUTE_STEP)
                     typing = !typing
-                }) { Text(if (typing) "Wheel" else "Type") }
+                }) { Text(if (typing) "Wheel" else "Keyboard") }
             }
         },
         text = {
@@ -119,4 +125,53 @@ private fun TimeWheels(time: LocalTime, is24: Boolean, onChange: (LocalTime) -> 
         Text(":", Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.headlineMedium)
         Wheel(minutes, time.minute / WHEEL_MINUTE_STEP, { onChange(time.withMinute(it * WHEEL_MINUTE_STEP)) }, Modifier.width(80.dp))
     }
+}
+
+/** The meeting grid steps as a row of buttons, the chosen one filled. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun IntervalChoice(selected: Int, modifier: Modifier = Modifier, onSelect: (Int) -> Unit) {
+    val steps = Settings.GRID_STEPS
+    SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
+        steps.forEachIndexed { index, step ->
+            SegmentedButton(
+                selected = selected == step,
+                onClick = { onSelect(step) },
+                shape = SegmentedButtonDefaults.itemShape(index, steps.size),
+                // No check mark: with four buttons it squeezes the text on a phone.
+                icon = {},
+            ) { Text("$step min") }
+        }
+    }
+}
+
+/** A dialog to pick a timer length on hour and minute wheels; [buttons] get it in minutes. */
+@Composable
+fun DurationDialog(
+    title: String,
+    initialMinutes: Int,
+    onDismiss: () -> Unit,
+    buttons: @Composable RowScope.(minutes: Int) -> Unit,
+) {
+    var minutes by remember { mutableIntStateOf(initialMinutes) }
+    val hourLabels = remember { (0..23).map { it.toString() } }
+    val minuteLabels = remember { (0..59).map { it.toString().padStart(2, '0') } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Wheel(hourLabels, minutes / 60, { minutes = it * 60 + minutes % 60 }, Modifier.width(72.dp))
+                Text("h", Modifier.padding(start = 8.dp, end = 16.dp), style = MaterialTheme.typography.titleMedium)
+                Wheel(minuteLabels, minutes % 60, { minutes = minutes / 60 * 60 + it }, Modifier.width(72.dp))
+                Text("min", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
+            }
+        },
+        confirmButton = { Row { buttons(minutes) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }

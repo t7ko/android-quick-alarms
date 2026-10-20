@@ -22,10 +22,11 @@ object Fmt {
         else -> date.format(DateTimeFormatter.ofPattern("EEE d MMM"))
     }
 
-    /** "Wake up" or "Meeting at 10:00". */
+    /** "Wake up", "Meeting at 10:00" or "15 min timer". */
     fun title(context: Context, alarm: Alarm): String = when (alarm.kind) {
         AlarmKind.WAKE -> "Wake up"
         AlarmKind.MEETING -> "Meeting at " + time(context, alarm.meetingStart ?: alarm.time)
+        AlarmKind.TIMER -> alarm.timerMinutes?.let { AlarmTimes.durationText(it) + " timer" } ?: "Timer"
     }
 
     /** "Alarm 9:57, 3 min before", and when snoozed ", snoozed to 10:02". */

@@ -1,11 +1,12 @@
 # Notes for AI coding agents: quick-alarms
 
-An Android alarm app for one user, with two flows on one main screen:
+An Android alarm app for one user, with three flows on one main screen:
 
 1. Wake up: tap one of a few saved times for a one-time alarm at its next occurrence.
 2. Meetings: tap a meeting start time in a grid for today; the alarm rings 3 minutes
    before it (5 on a long press). The user reads the times off their calendar; there is
-   deliberately no calendar integration.
+   deliberately no calendar integration. The first line picks the grid's interval.
+3. Timers: tap a saved length to start a countdown; any number can run at once.
 
 The main screen is the one used every day; the alarm list is rarely needed.
 
@@ -38,15 +39,28 @@ paths, file names and other details of one machine out of tracked files.
   (`Settings.xiaomiSetupDone`). Its buttons open App info and MIUI's permission editor,
   falling back to App info where that is missing or not exported.
 - Time dialogs (`TimeDialog` in `ui/Inputs.kt`) open on scroll wheels (`ui/Wheel.kt`, a
-  snapping `LazyColumn` that wraps around), minutes in 5-minute steps; "Type" switches to
-  Material's `TimeInput` for any minute. Material 3 has no wheel picker.
+  snapping `LazyColumn` that wraps around), minutes in 5-minute steps; "Keyboard" switches
+  to Material's `TimeInput` for any minute. Material 3 has no wheel picker.
+- The meeting grid's interval picked on the main screen lives in `MainActivity`: it
+  survives rotation and the other screens, and goes back to `Settings.gridStepMinutes`
+  when the app goes to the background (`onStop`) or Settings gets a new interval. Times
+  from "Other start time" stay in the grid for their day (`Settings.extraMeetingStarts`);
+  they and the starts of meeting alarms show at any interval.
+- Timers are alarms of kind `TIMER` (`Alarm.timerMinutes`), scheduled and rung like the
+  others, so several run at once. Their end is a wall-clock time like any alarm's, so a
+  time zone change or a DST switch during a timer moves it; rare enough to accept. Each
+  running timer has a countdown notification (channel "Running timers", a chronometer)
+  with Cancel; `restoreAlarms` posts them again after a reboot or a force stop.
+- One alarm rings at a time (`AlarmService`): one that comes due while another rings
+  replaces it, and the older one gets a "Missed" notification. Timers ending close
+  together hit this more often than alarms do.
 - English only, strings in code.
 
 ## Layout
 
 - `app/src/main/java/t7helpers/quickalarms/`: model (`Alarm`, `Settings`), pure time
   logic (`AlarmTimes`), storage (`Repositories`), scheduling, receivers, the service.
-- `.../ui/`: Compose screens. `HomeScreen` with `HomeGrids`, `HomeCards`,
+- `.../ui/`: Compose screens. `HomeScreen` with `HomeGrids`, `HomeTimers`, `HomeCards`,
   `HomeDialogs` and `HomeActions` (what taps do, with Undo snackbars); `AlarmListScreen`,
   `SettingsScreen`, `RingActivity`. Navigation is a plain enum in `MainActivity`.
 - `app/src/test/`: JVM unit tests for `AlarmTimes` and the storage format.
@@ -82,8 +96,13 @@ Versions are in `gradle/libs.versions.toml`. The scripts are for Windows PowerSh
 in light mode with 24-hour time, scaled to half size. The status bar is in demo mode:
 `adb shell settings put global sysui_demo_allowed 1`, then broadcasts of
 `com.android.systemui.demo` with `-e command enter`, `clock -e hhmm 0840`,
-`battery -e level 100 -e plugged false`, `notifications -e visible false`, and `exit`
-afterwards. Retake them when a screen changes visibly.
+`battery -e level 100 -e plugged false`, `notifications -e visible false`,
+`network -e wifi show -e level 4 -e fully true`,
+`network -e mobile show -e datatype none -e level 4 -e fully true`, and `exit`
+afterwards. The emulator clock is set to 08:40 too, with a wake-up alarm at 7:00 and
+meeting alarms at 10:00, 11:30 (long press) and 14:00; `timers.png` adds two 15 min
+timers started 7 minutes apart (move the clock between them). Retake them when a screen
+changes visibly.
 
 ## Tested
 
@@ -116,6 +135,18 @@ sent too fast; send them one `input keyevent` at a time.
 
 The first signed release build (0.3.0, not debuggable) installs, sets an alarm, rings on
 time over the lock screen and dismisses cleanly on the emulator.
+
+On 2026-10-20, version 1.1.0 (interval picker, kept meeting starts, timers), a release
+build installed over 0.3.0 with its data kept: "Keyboard" shows in the time dialog; picking 15 shows
+the quarter hours, an alarm set at 9:45 stays in the grid at 60, a time from "Other start
+time" stays after its alarm is removed; the pick survives rotation, Settings' new default
+replaces it, and leaving and reopening the app goes back to Settings' interval. Two 5-min
+timers started 8 s apart run together, each with a countdown row and notification; one
+rings over the lock screen ("5 min timer", "Time's up"), and the second, due while the
+first rang, replaced it with a Missed notification for the first. Dismiss and Snooze work;
+✕, Undo and the notification's Cancel work; + saves a 1 h 30 min length or starts a
+one-off 20 min timer; a long press removes a length. After a force stop, opening the app
+brings back the timer and its notification; after a reboot, the receiver does.
 
 Not tried yet: auto-stop after `ringMinutes` with its "Missed" notification, time zone
 changes, Android 8-13, and MIUI/HyperOS on a real Xiaomi phone.

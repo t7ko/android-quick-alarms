@@ -33,10 +33,15 @@ class AlarmRepository private constructor(private val context: Context) {
      * @throws SecurityException if the app may not set exact alarms; nothing is saved then.
      */
     @Synchronized
-    fun add(kind: AlarmKind, time: LocalDateTime, meetingStart: LocalDateTime? = null): Alarm {
+    fun add(
+        kind: AlarmKind,
+        time: LocalDateTime,
+        meetingStart: LocalDateTime? = null,
+        timerMinutes: Int? = null,
+    ): Alarm {
         val id = prefs.getInt(KEY_NEXT_ID, 1)
         prefs.edit().putInt(KEY_NEXT_ID, id + 1).commit()
-        return put(Alarm(id, kind, time, time, meetingStart))
+        return put(Alarm(id, kind, time, time, meetingStart, timerMinutes))
     }
 
     /** Schedules and saves [alarm], replacing the one with the same id. */
@@ -63,10 +68,11 @@ class AlarmRepository private constructor(private val context: Context) {
 
     /**
      * Registers every alarm with AlarmManager again, after a reboot, a clock change or a
-     * force stop. Drops alarms that were missed long ago and leaves [ringingId] alone.
+     * force stop. Drops alarms that were missed long ago, and returns them; leaves
+     * [ringingId] alone.
      */
     @Synchronized
-    fun rescheduleAll(now: LocalDateTime, ringingId: Int?) {
+    fun rescheduleAll(now: LocalDateTime, ringingId: Int?): List<Alarm> {
         val (stale, live) = state.value.partition { it.id != ringingId && AlarmTimes.isStale(it, now) }
         for (alarm in live) {
             if (alarm.id == ringingId) continue
@@ -77,6 +83,7 @@ class AlarmRepository private constructor(private val context: Context) {
             }
         }
         if (stale.isNotEmpty()) save(live)
+        return stale
     }
 
     private fun save(alarms: List<Alarm>) {

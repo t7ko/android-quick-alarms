@@ -33,6 +33,12 @@ class AlarmTimesTest {
     }
 
     @Test
+    fun gridEveryTwentyMinutes() {
+        val slots = AlarmTimes.gridSlots(9, 10, 20)
+        assertEquals(listOf("09:00", "09:20", "09:40", "10:00"), slots.map { it.toString() })
+    }
+
+    @Test
     fun gridStopsBeforeMidnight() {
         assertEquals(LocalTime.of(23, 0), AlarmTimes.gridSlots(22, 23, 60).last())
         assertEquals(1, AlarmTimes.gridSlots(23, 23, 15).size)
@@ -68,6 +74,22 @@ class AlarmTimesTest {
         assertEquals("in 3 min", AlarmTimes.untilText(morning, morning.plusMinutes(3)))
         assertEquals("in 2 h", AlarmTimes.untilText(morning, morning.plusHours(2)))
         assertEquals("in 8 h 30 min", AlarmTimes.untilText(evening, LocalDateTime.of(2026, 10, 18, 7, 0)))
+    }
+
+    @Test
+    fun durationText() {
+        assertEquals("5 min", AlarmTimes.durationText(5))
+        assertEquals("1 h", AlarmTimes.durationText(60))
+        assertEquals("1 h 30 min", AlarmTimes.durationText(90))
+    }
+
+    @Test
+    fun countdownRoundsUpToSeconds() {
+        assertEquals("15:00", AlarmTimes.countdownText(morning, morning.plusMinutes(15)))
+        assertEquals("15:00", AlarmTimes.countdownText(morning.plusNanos(5_000_000), morning.plusMinutes(15)))
+        assertEquals("0:09", AlarmTimes.countdownText(morning, morning.plusSeconds(9)))
+        assertEquals("1:02:05", AlarmTimes.countdownText(morning, morning.plusSeconds(3725)))
+        assertEquals("0:00", AlarmTimes.countdownText(morning.plusSeconds(3), morning))
     }
 
     @Test

@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.time.Duration
 import java.time.LocalDateTime
 
-enum class AlarmKind { WAKE, MEETING }
+enum class AlarmKind { WAKE, MEETING, TIMER }
 
 /**
  * A one-time alarm. Times are local wall-clock times, so an alarm set for 7:00 still rings
@@ -21,6 +21,8 @@ data class Alarm(
     val ringAt: LocalDateTime = time,
     /** Start of the meeting a [AlarmKind.MEETING] alarm warns about. */
     val meetingStart: LocalDateTime? = null,
+    /** Length of a [AlarmKind.TIMER], which rings this many minutes after it was started. */
+    val timerMinutes: Int? = null,
 ) {
     val isSnoozed: Boolean get() = ringAt != time
 
@@ -34,6 +36,7 @@ fun Alarm.toJson(): JSONObject = JSONObject()
     .put("time", time.toString())
     .put("ringAt", ringAt.toString())
     .putOpt("meetingStart", meetingStart?.toString())
+    .putOpt("timerMinutes", timerMinutes)
 
 fun alarmFromJson(o: JSONObject) = Alarm(
     id = o.getInt("id"),
@@ -41,6 +44,7 @@ fun alarmFromJson(o: JSONObject) = Alarm(
     time = LocalDateTime.parse(o.getString("time")),
     ringAt = LocalDateTime.parse(o.getString("ringAt")),
     meetingStart = if (o.has("meetingStart")) LocalDateTime.parse(o.getString("meetingStart")) else null,
+    timerMinutes = if (o.has("timerMinutes")) o.getInt("timerMinutes") else null,
 )
 
 fun encodeAlarms(alarms: List<Alarm>): String = JSONArray(alarms.map { it.toJson() }).toString()

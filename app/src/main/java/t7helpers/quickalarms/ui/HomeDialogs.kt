@@ -30,8 +30,14 @@ sealed interface HomeDialog {
     /** Long press on a wake-up cell: remove the slot, or keep a one-off time as a slot. */
     data class WakeSlot(val time: LocalTime) : HomeDialog
 
-    /** Type a meeting start that is not in the grid. */
+    /** Type a meeting start that is not in the grid; it stays there for the day. */
     data object MeetingTime : HomeDialog
+
+    /** + under the timers: a length to save as a timer, or to start once. */
+    data object TimerLength : HomeDialog
+
+    /** Long press on a timer: remove it from the saved lengths. */
+    data class TimerSlot(val minutes: Int) : HomeDialog
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,10 +91,27 @@ fun HomeDialogs(dialog: HomeDialog, settings: Settings, now: LocalDateTime, acti
                 },
             ) { picked ->
                 TextButton(onClick = {
-                    actions.setMeeting(now.toLocalDate().atTime(picked()), lead)
+                    actions.setMeeting(now.toLocalDate().atTime(picked()), lead, keepStart = true)
                     onClose()
                 }) { Text("Add") }
             }
         }
+
+        HomeDialog.TimerLength -> DurationDialog("Timer", 20, onDismiss = onClose) { minutes ->
+            TextButton(onClick = { actions.saveTimerSlot(minutes); onClose() }, enabled = minutes > 0) {
+                Text("Save timer")
+            }
+            TextButton(onClick = { actions.startTimer(minutes); onClose() }, enabled = minutes > 0) { Text("Start") }
+        }
+
+        is HomeDialog.TimerSlot -> AlertDialog(
+            onDismissRequest = onClose,
+            title = { Text(AlarmTimes.durationText(dialog.minutes) + " timer") },
+            text = { Text("Remove it from the timers? Timers running now go on.") },
+            confirmButton = {
+                TextButton(onClick = { actions.removeTimerSlot(dialog.minutes); onClose() }) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } },
+        )
     }
 }

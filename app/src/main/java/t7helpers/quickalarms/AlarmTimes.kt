@@ -49,13 +49,27 @@ object AlarmTimes {
     fun untilText(now: LocalDateTime, then: LocalDateTime): String {
         val seconds = Duration.between(now, then).seconds
         if (seconds <= 0) return "now"
-        val minutes = (seconds + 59) / 60
+        return "in " + durationText(((seconds + 59) / 60).toInt())
+    }
+
+    /** "5 min", "2 h" or "1 h 30 min". */
+    fun durationText(minutes: Int): String {
         val h = minutes / 60
         val m = minutes % 60
         return when {
-            h == 0L -> "in $m min"
-            m == 0L -> "in $h h"
-            else -> "in $h h $m min"
+            h == 0 -> "$m min"
+            m == 0 -> "$h h"
+            else -> "$h h $m min"
         }
+    }
+
+    /** Time left as "14:32" or "1:05:00", rounding up to whole seconds; "0:00" once passed. */
+    fun countdownText(now: LocalDateTime, then: LocalDateTime): String {
+        val millis = Duration.between(now, then).toMillis()
+        val seconds = if (millis <= 0) 0 else (millis + 999) / 1000
+        val h = seconds / 3600
+        val mm = (seconds / 60 % 60).toString().padStart(2, '0')
+        val ss = (seconds % 60).toString().padStart(2, '0')
+        return if (h > 0) "$h:$mm:$ss" else "${seconds / 60}:$ss"
     }
 }

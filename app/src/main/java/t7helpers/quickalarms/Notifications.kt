@@ -11,13 +11,15 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import t7helpers.quickalarms.ui.MainActivity
 import t7helpers.quickalarms.ui.RingActivity
+import java.time.ZoneId
 
 object Notifications {
     const val ID_RINGING = 1
     const val CHANNEL_RINGING = "ringing"
     private const val CHANNEL_STATUS = "status"
+    private const val CHANNEL_TIMERS = "timers"
 
-    /** Status notifications of an alarm (snoozed, missed) use this id plus the alarm id. */
+    /** Status notifications of an alarm (snoozed, missed, timer running) use this id plus the alarm id. */
     private const val STATUS_BASE = 1000
 
     fun ensureChannels(context: Context) {
@@ -32,6 +34,11 @@ object Notifications {
         )
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_STATUS, "Snoozed and missed alarms", NotificationManager.IMPORTANCE_LOW),
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_TIMERS, "Running timers", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "A countdown for each running timer."
+            },
         )
     }
 
@@ -68,19 +75,30 @@ object Notifications {
     }
 
     fun showSnoozed(context: Context, alarm: Alarm) {
-        val dismiss = PendingIntent.getBroadcast(
-            context, alarm.id,
-            Intent(context, AlarmReceiver::class.java)
-                .setAction(AlarmReceiver.ACTION_CANCEL)
-                .putExtra(AlarmReceiver.EXTRA_ID, alarm.id),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
         notify(
             context, alarm.id,
             status(context)
                 .setContentTitle("Snoozed until " + Fmt.time(context, alarm.ringAt))
                 .setContentText(Fmt.title(context, alarm))
-                .addAction(0, "Dismiss", dismiss),
+                .addAction(0, "Dismiss", cancelIntent(context, alarm.id)),
+        )
+    }
+
+    /** A running timer counts down in its notification; the alarm screen replaces it when it rings. */
+    fun showTimer(context: Context, alarm: Alarm) {
+        val end = alarm.ringAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        notify(
+            context, alarm.id,
+            status(context, CHANNEL_TIMERS)
+                .setContentTitle(Fmt.title(context, alarm))
+                .setContentText("Rings at " + Fmt.time(context, alarm.ringAt))
+                .setWhen(end)
+                .setShowWhen(true)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .addAction(0, "Cancel", cancelIntent(context, alarm.id)),
         )
     }
 
@@ -98,12 +116,12 @@ object Notifications {
         NotificationManagerCompat.from(context).cancel(STATUS_BASE + alarmId)
     }
 
-    private fun status(context: Context): NotificationCompat.Builder {
+    private fun status(context: Context, channel: String = CHANNEL_STATUS): NotificationCompat.Builder {
         ensureChannels(context)
         val open = PendingIntent.getActivity(
             context, 0, MainActivity.alarmsIntent(context), PendingIntent.FLAG_IMMUTABLE,
         )
-        return NotificationCompat.Builder(context, CHANNEL_STATUS)
+        return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_alarm)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(open)
@@ -114,6 +132,15 @@ object Notifications {
         val manager = NotificationManagerCompat.from(context)
         if (manager.areNotificationsEnabled()) manager.notify(STATUS_BASE + alarmId, builder.build())
     }
+
+    /** Deletes the alarm without ringing it. */
+    private fun cancelIntent(context: Context, id: Int): PendingIntent = PendingIntent.getBroadcast(
+        context, id,
+        Intent(context, AlarmReceiver::class.java)
+            .setAction(AlarmReceiver.ACTION_CANCEL)
+            .putExtra(AlarmReceiver.EXTRA_ID, id),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
     private fun serviceIntent(context: Context, action: String, id: Int): PendingIntent =
         PendingIntent.getService(

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import t7helpers.quickalarms.Alarm
+import t7helpers.quickalarms.AlarmKind
 import t7helpers.quickalarms.AlarmService
 import t7helpers.quickalarms.AlarmTimes
 import t7helpers.quickalarms.Fmt
@@ -93,6 +94,9 @@ private fun RingScreen(alarm: Alarm, snoozeMinutes: Int, onSnooze: () -> Unit, o
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                if (alarm.kind == AlarmKind.TIMER) {
+                    Text("Time's up", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
